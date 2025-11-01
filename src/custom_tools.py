@@ -20,23 +20,31 @@ class SafeFileWriteTool(BaseTool):
         if not filename or not content:
             return "Error: Missing 'filename' or 'content' in input."
 
-        base_dir = os.path.abspath(os.path.dirname(__file__))
-        file_path = os.path.abspath(os.path.join(base_dir, "../../..", filename)) # Go up 3 levels to project root
-
-        # Check if the resolved file path is still within the base directory (now project root)
-        project_root = os.path.abspath(os.path.join(base_dir, "../../.."))
-        if not file_path.startswith(project_root):
-            return f"Error: File path '{filename}' is outside the allowed directory. Access denied."
+        # --- NEW SANDBOX ---
+        # Define the output directory relative to this file (src/custom_tools.py)
+        # This goes up one level (to src) then up another (to project root) then into 'output'
+        output_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "output"))
         
-        if ".." in filename:
+        # Ensure the output directory exists
+        os.makedirs(output_dir, exist_ok=True)
+
+        file_path = os.path.abspath(os.path.join(output_dir, filename))
+
+        # Security check: Ensure the final path is *within* the output_dir
+        if not file_path.startswith(output_dir):
+            return f"Error: File path '{filename}' is outside the allowed 'output' directory. Access denied."
+        
+        if ".." in filename.split(os.sep):
             return "Error: Relative paths with '..' are not allowed."
+        # --- END NEW SANDBOX ---
 
         try:
-            # Create directories if they don't exist
+            # Create subdirectories *within* the output folder if needed
             os.makedirs(os.path.dirname(file_path), exist_ok=True)
             
             with open(file_path, 'w', encoding='utf-8') as f:
                 f.write(content)
-            return f"Successfully wrote content to {filename}"
+            # Return a clearer path
+            return f"Successfully wrote content to output/{filename}"
         except Exception as e:
             return f"Error writing file: {e}"
